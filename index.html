@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Claude Console</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23e8a821'/%3E%3Cpath d='M5 4l5 4-5 4z' fill='%23080a0d'/%3E%3C/svg%3E" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&display=swap');
+
+  :root {
+    color-scheme: dark;
+    --bg: #080a0d;
+    --surface: #0e1116;
+    --surface-2: #141924;
+    --border: #1e2531;
+    --border-hot: #2e3a4d;
+    --ink: #dde2ea;
+    --ink-dim: #8a92a5;
+    --ink-faint: #4d5566;
+    --amber: #e8a821;
+    --green: #4cc76a;
+    --red: #e5534b;
+    --blue: #58a6ff;
+    --violet: #bc8cff;
+    --mono: "Fira Code", ui-monospace, "SF Mono", Menlo, monospace;
+    --meter-track: #1a202c;
+  }
+  * { box-sizing: border-box; }
+  html { scrollbar-color: var(--border-hot) var(--bg); }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--mono); font-size: 13px; line-height: 1.55;
+    min-height: 100dvh;
+  }
+  /* CRT atmosphere: scanlines + vignette, purely decorative */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse 120% 90% at 50% 0%, transparent 60%, rgba(0,0,0,0.35));
+  }
+  .shell { position: relative; z-index: 2; }
+
+  /* ── top bar ────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+    flex-wrap: wrap;
+    padding: 18px 32px 14px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0d1017, var(--bg));
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; }
+  .brand .caret { color: var(--amber); }
+  .brand .tld { color: var(--ink-faint); font-weight: 400; }
+  .brand .cursor {
+    display: inline-block; width: 8px; height: 15px; margin-left: 5px;
+    background: var(--amber); vertical-align: -2px;
+    animation: blink 1.2s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .stats { display: flex; gap: 26px; flex-wrap: wrap; }
+  .stat { display: flex; flex-direction: column; gap: 0; }
+  .stat .k { font-size: 10px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.14em; }
+  .stat .v { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .v.money { color: var(--green); }
+
+  /* ── controls ───────────────────────────────── */
+  .controls {
+    display: flex; gap: 10px; padding: 18px 32px 6px; align-items: center; flex-wrap: wrap;
+  }
+  .searchwrap { position: relative; flex: 1; min-width: 240px; }
+  .searchwrap .slash {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 10px; color: var(--ink-faint); border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 6px; pointer-events: none;
+  }
+  input[type=text], select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--ink);
+    padding: 9px 12px; border-radius: 5px; font: inherit; outline: none; width: 100%;
+    transition: border-color 160ms ease;
+  }
+  select { width: auto; cursor: pointer; }
+  input[type=text]:hover, select:hover { border-color: var(--border-hot); }
+  input[type=text]:focus-visible, select:focus-visible, .btn:focus-visible, .play:focus-visible, .idchip:focus-visible {
+    border-color: var(--amber); outline: 2px solid rgba(232,168,33,0.35); outline-offset: 1px;
+  }
+  .btn {
+    background: var(--surface); border: 1px solid var(--border); color: var(--ink);
+    padding: 9px 16px; border-radius: 5px; font: inherit; cursor: pointer;
+    transition: border-color 160ms ease, color 160ms ease, transform 80ms ease;
+  }
+  .btn:hover { border-color: var(--amber); color: var(--amber); }
+  .btn:active { transform: scale(0.97); }
+  label.toggle { display: flex; align-items: center; gap: 7px; color: var(--ink-dim); cursor: pointer; user-select: none; white-space: nowrap; }
+  label.toggle input { accent-color: var(--amber); width: 14px; height: 14px; cursor: pointer; }
+
+  /* ── list ───────────────────────────────────── */
+  .list { padding: 4px 32px 60px; }
+  .daysep {
+    display: flex; align-items: center; gap: 12px;
+    margin: 22px 0 10px; color: var(--amber);
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.18em;
+  }
+  .daysep::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .daysep .n { color: var(--ink-faint); letter-spacing: 0; }
+
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 56px 84px 118px 140px 56px 168px;
+    gap: 14px; align-items: center;
+    padding: 12px 16px; margin-bottom: 7px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+  .row:hover { background: var(--surface-2); border-color: var(--border-hot); }
+  @keyframes rowin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .row.enter { animation: rowin 260ms ease-out backwards; }
+
+  .lead { min-width: 0; }
+  .prompt {
+    color: var(--ink); font-size: 14px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;
+  }
+  .prompt.empty { color: var(--ink-faint); font-style: italic; font-weight: 400; }
+  .meta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .meta .proj { color: var(--amber); white-space: nowrap; font-size: 11px; }
+  .meta .path { color: var(--ink-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .idchip {
+    font: inherit; font-size: 10px; color: var(--ink-dim);
+    background: transparent; border: 1px solid var(--border); border-radius: 3px;
+    padding: 0 6px; cursor: pointer; white-space: nowrap;
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+  .idchip:hover { color: var(--amber); border-color: var(--amber); }
+
+  .num { text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .costcell { text-align: right; }
+  .costcell .val { color: var(--green); font-variant-numeric: tabular-nums; }
+  .costcell .val.zero { color: var(--ink-faint); }
+  .meter { height: 3px; border-radius: 2px; background: var(--meter-track); margin-top: 5px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--green); border-radius: 2px; }
+
+  .modelcell { display: flex; flex-direction: column; gap: 3px; align-items: flex-end; }
+  .mchip { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-dim); white-space: nowrap; }
+  .mchip .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+
+  .when { text-align: right; color: var(--ink-dim); font-size: 11px; white-space: nowrap; }
+
+  .actions { display: flex; gap: 7px; align-items: center; }
+  .play {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; border: 1px solid var(--border); color: var(--ink-dim);
+    padding: 6px 11px; border-radius: 5px; font: inherit; font-size: 11px; cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 160ms ease, color 160ms ease, transform 80ms ease;
+  }
+  .play:hover { border-color: var(--amber); color: var(--amber); }
+  .play:active { transform: scale(0.95); }
+  .play svg { width: 9px; height: 9px; fill: currentColor; flex: none; }
+  .rowstatus { font-size: 10px; color: var(--amber); white-space: nowrap; }
+  .rowstatus.err { color: var(--red); }
+
+  .empty-list { text-align: center; color: var(--ink-dim); padding: 70px 0 30px; }
+  .empty-list b { color: var(--ink); display: block; margin-bottom: 6px; font-size: 14px; }
+
+  @media (max-width: 1150px) {
+    .row { grid-template-columns: minmax(0, 1fr) 168px; row-gap: 8px; }
+    .num, .when { display: none; }
+    .costcell, .modelcell { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div class="brand"><span class="caret">&gt;_</span> claude<span class="tld">-console</span><span class="cursor"></span></div>
+    <div class="stats" id="stats" aria-live="polite"></div>
+  </div>
+
+  <div class="controls">
+    <div class="searchwrap">
+      <input type="text" id="search" placeholder="search prompt, project, session id" aria-label="Search sessions" />
+      <span class="slash">/</span>
+    </div>
+    <select id="project" aria-label="Filter by project"><option value="">all projects</option></select>
+    <select id="sort" aria-label="Sort sessions">
+      <option value="recent">recent first</option>
+      <option value="cost">highest cost</option>
+      <option value="msgs">most messages</option>
+      <option value="tokens">most tokens</option>
+    </select>
+    <label class="toggle"><input type="checkbox" id="hideEmpty" checked />hide noise</label>
+    <select id="terminalApp" aria-label="Terminal app to open sessions in"></select>
+    <button class="btn" id="refresh">rescan</button>
+  </div>
+
+  <div class="list" id="rows"></div>
+
+</div>
+<script>
+let allSessions = [];
+let terminals = [];
+const $ = (id) => document.getElementById(id);
+const PLAY = '<svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l8 5-8 5z"/></svg>';
+const MODEL_COLORS = { opus: 'var(--amber)', sonnet: 'var(--blue)', haiku: 'var(--green)', fable: 'var(--violet)' };
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function timeAgo(iso) {
+  if (!iso) return '-';
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return mins + 'm';
+  const h = Math.floor(mins / 60);
+  if (h < 24) return h + 'h';
+  const d = Math.floor(h / 24);
+  if (d < 30) return d + 'd';
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+function fmtCost(c) {
+  if (!c) return '-';
+  if (c < 0.01) return '<$0.01';
+  return '$' + (c >= 1000 ? c.toLocaleString(undefined, { maximumFractionDigits: 0 }) : c.toFixed(2));
+}
+function fmtTokens(t) {
+  if (!t) return '-';
+  if (t >= 1e9) return (t / 1e9).toFixed(1) + 'B';
+  if (t >= 1e6) return (t / 1e6).toFixed(1) + 'M';
+  if (t >= 1e3) return (t / 1e3).toFixed(0) + 'k';
+  return String(t);
+}
+function shortPath(cwd) { return cwd.replace(/^\/Users\/[^/]+/, '~'); }
+
+function dayBucket(iso) {
+  const d = new Date(iso), now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const that = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = Math.round((today - that) / 86400000);
+  if (diff <= 0) return 'today';
+  if (diff === 1) return 'yesterday';
+  if (diff < 7) return 'this week';
+  if (diff < 30) return 'this month';
+  return 'earlier';
+}
+
+function modelChips(models) {
+  const seen = (models || []).slice(0, 2);
+  if (!seen.length) return '<span class="mchip">-</span>';
+  return seen.map((m) => {
+    const short = m.replace(/^claude-/, '');
+    const family = Object.keys(MODEL_COLORS).find((f) => short.startsWith(f));
+    const color = family ? MODEL_COLORS[family] : 'var(--ink-faint)';
+    return `<span class="mchip"><span class="dot" style="background:${color}"></span>${esc(short)}</span>`;
+  }).join('');
+}
+
+function rowHtml(s, maxCost, animIdx) {
+  const emptyPrompt = s.prompt === '(no prompt captured)';
+  const pct = s.cost && maxCost ? Math.max(2, Math.round(Math.sqrt(s.cost / maxCost) * 100)) : 0;
+  const anim = animIdx < 16 ? `class="row enter" style="animation-delay:${animIdx * 28}ms"` : 'class="row"';
+  return `
+  <div ${anim} data-id="${s.sessionId}">
+    <div class="lead">
+      <div class="prompt ${emptyPrompt ? 'empty' : ''}" title="${esc(s.prompt).slice(0, 500)}">${emptyPrompt ? '(empty session)' : esc(s.prompt).slice(0, 240)}</div>
+      <div class="meta">
+        <span class="proj">${esc(s.projectName)}</span>
+        <span class="path">${esc(shortPath(s.cwd))}${s.gitBranch && s.gitBranch !== 'HEAD' ? ' · ' + esc(s.gitBranch) : ''}</span>
+        <button class="idchip" data-copy="${s.sessionId}" aria-label="Copy session id">${s.sessionId.slice(0, 8)}</button>
+      </div>
+    </div>
+    <div class="num">${s.messageCount}</div>
+    <div class="num">${fmtTokens(s.tokens)}</div>
+    <div class="costcell">
+      <span class="val ${s.cost ? '' : 'zero'}">${fmtCost(s.cost)}</span>
+      <div class="meter" aria-hidden="true"><i style="width:${pct}%"></i></div>
+    </div>
+    <div class="modelcell" title="${esc((s.models || []).join(', '))}">${modelChips(s.models)}</div>
+    <div class="when">${timeAgo(s.lastActivity)}</div>
+    <div class="actions">
+      <button class="play" data-target="terminal" aria-label="Resume in ${esc(currentTerminalLabel())}">${PLAY}<span class="termlabel">${esc(currentTerminalLabel().toLowerCase())}</span></button>
+      <button class="play" data-target="vscode" aria-label="Open project in VS Code">${PLAY}code</button>
+      <span class="rowstatus" role="status"></span>
+    </div>
+  </div>`;
+}
+
+function render(view, sort) {
+  const rows = $('rows');
+  if (!view.length) {
+    rows.innerHTML = '<div class="empty-list"><b>no sessions match</b>try a different search, or untick "hide noise"</div>';
+    return;
+  }
+  const maxCost = Math.max(...view.map((s) => s.cost || 0));
+  let html = '', lastBucket = null, i = 0;
+  for (const s of view) {
+    if (sort === 'recent') {
+      const b = dayBucket(s.lastActivity);
+      if (b !== lastBucket) {
+        const count = view.filter((x) => dayBucket(x.lastActivity) === b).length;
+        html += `<div class="daysep">${b}<span class="n">${count}</span></div>`;
+        lastBucket = b;
+      }
+    }
+    html += rowHtml(s, maxCost, i++);
+  }
+  rows.innerHTML = html;
+}
+
+function renderStats() {
+  const totalCost = allSessions.reduce((a, s) => a + (s.cost || 0), 0);
+  const totalTokens = allSessions.reduce((a, s) => a + (s.tokens || 0), 0);
+  const projects = new Set(allSessions.map((s) => s.cwd)).size;
+  const stat = (k, v, cls) => `<div class="stat"><span class="k">${k}</span><span class="v ${cls || ''}">${v}</span></div>`;
+  $('stats').innerHTML =
+    stat('sessions', allSessions.length) +
+    stat('projects', projects) +
+    stat('tokens', fmtTokens(totalTokens)) +
+    stat('total spend', fmtCost(totalCost), 'money');
+}
+
+function currentTerminalId() {
+  const stored = localStorage.getItem('terminalApp');
+  if (stored && terminals.some((t) => t.id === stored)) return stored;
+  return terminals[0]?.id || 'terminal';
+}
+function currentTerminalLabel() {
+  return terminals.find((t) => t.id === currentTerminalId())?.label || 'terminal';
+}
+function renderTerminalPicker() {
+  const sel = $('terminalApp');
+  sel.innerHTML = terminals.map((t) => `<option value="${esc(t.id)}">open in ${esc(t.label)}</option>`).join('');
+  sel.value = currentTerminalId();
+  sel.style.display = terminals.length > 1 ? '' : 'none';
+}
+
+function renderProjectFilter() {
+  const names = [...new Set(allSessions.map((s) => s.projectName))].sort();
+  const sel = $('project'), current = sel.value;
+  sel.innerHTML = '<option value="">all projects</option>' +
+    names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value = current;
+}
+
+function syncUrl() {
+  const p = new URLSearchParams();
+  if ($('search').value) p.set('q', $('search').value);
+  if ($('project').value) p.set('project', $('project').value);
+  if ($('sort').value !== 'recent') p.set('sort', $('sort').value);
+  if (!$('hideEmpty').checked) p.set('noise', '1');
+  history.replaceState(null, '', p.toString() ? '?' + p : location.pathname);
+}
+function readUrl() {
+  const p = new URLSearchParams(location.search);
+  $('search').value = p.get('q') || '';
+  $('sort').value = p.get('sort') || 'recent';
+  $('hideEmpty').checked = p.get('noise') !== '1';
+  return p.get('project') || '';
+}
+
+function applyView() {
+  const q = $('search').value.toLowerCase();
+  const proj = $('project').value;
+  const sort = $('sort').value;
+  const hideNoise = $('hideEmpty').checked;
+
+  const view = allSessions.filter((s) =>
+    (!proj || s.projectName === proj) &&
+    (!hideNoise || (s.messageCount > 0 && !s.prompt.startsWith('[MEMORY]'))) &&
+    (!q || s.prompt.toLowerCase().includes(q) || s.projectName.toLowerCase().includes(q) || s.sessionId.includes(q))
+  );
+  const sorters = {
+    recent: (a, b) => new Date(b.lastActivity) - new Date(a.lastActivity),
+    cost: (a, b) => (b.cost || 0) - (a.cost || 0),
+    msgs: (a, b) => b.messageCount - a.messageCount,
+    tokens: (a, b) => (b.tokens || 0) - (a.tokens || 0),
+  };
+  view.sort(sorters[sort]);
+  render(view, sort);
+  syncUrl();
+}
+
+async function load(refresh) {
+  $('stats').innerHTML = '<div class="stat"><span class="k">status</span><span class="v">' + (refresh ? 'rescanning' : 'loading') + '</span></div>';
+  const res = await fetch('/api/sessions' + (refresh ? '?refresh=1' : ''));
+  const data = await res.json();
+  allSessions = data.sessions;
+  terminals = data.terminals || [];
+  renderStats();
+  renderTerminalPicker();
+  const urlProject = readUrl();
+  renderProjectFilter();
+  if (urlProject) $('project').value = urlProject;
+  applyView();
+}
+
+$('rows').addEventListener('click', async (e) => {
+  const copyBtn = e.target.closest('button[data-copy]');
+  if (copyBtn) {
+    try { await navigator.clipboard.writeText(copyBtn.dataset.copy); } catch {}
+    const old = copyBtn.textContent;
+    copyBtn.textContent = 'copied';
+    setTimeout(() => (copyBtn.textContent = old), 1200);
+    return;
+  }
+  const btn = e.target.closest('button[data-target]');
+  if (!btn) return;
+  const row = e.target.closest('.row');
+  const status = row.querySelector('.rowstatus');
+  status.classList.remove('err');
+  status.textContent = 'opening...';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: row.dataset.id, target: btn.dataset.target, app: btn.dataset.target === 'terminal' ? currentTerminalId() : undefined }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      status.textContent = btn.dataset.target === 'vscode' ? 'opened, resume cmd copied' : 'opened';
+    } else {
+      status.classList.add('err');
+      status.textContent = data.error || 'failed';
+    }
+  } catch {
+    status.classList.add('err');
+    status.textContent = 'failed';
+  }
+  btn.disabled = false;
+  setTimeout(() => (status.textContent = ''), 4000);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+    e.preventDefault();
+    $('search').focus();
+  }
+  if (e.key === 'Escape' && document.activeElement === $('search')) {
+    $('search').value = '';
+    applyView();
+  }
+});
+
+$('terminalApp').addEventListener('change', () => {
+  localStorage.setItem('terminalApp', $('terminalApp').value);
+  const label = currentTerminalLabel().toLowerCase();
+  document.querySelectorAll('.termlabel').forEach((el) => (el.textContent = label));
+});
+$('search').addEventListener('input', applyView);
+$('project').addEventListener('change', applyView);
+$('sort').addEventListener('change', applyView);
+$('hideEmpty').addEventListener('change', applyView);
+$('refresh').addEventListener('click', () => load(true));
+
+load(false);
+</script>
+</body>
+</html>
