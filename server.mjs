@@ -197,7 +197,12 @@ async function openInVSCode(session) {
 
 function sendJson(res, status, body) {
   const data = JSON.stringify(body);
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Content-Length': Buffer.byteLength(data),
+    // Without nosniff a browser may sniff a JSON body as HTML and render it.
+    'X-Content-Type-Options': 'nosniff',
+  });
   res.end(data);
 }
 
@@ -206,7 +211,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/') {
     const html = await fsp.readFile(path.join(__dirname, 'index.html'));
-    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.writeHead(200, { 'Content-Type': 'text/html', 'X-Content-Type-Options': 'nosniff' });
     res.end(html);
     return;
   }
@@ -223,7 +228,8 @@ const server = http.createServer(async (req, res) => {
       const sessions = forceRefresh || sessionIndex.size === 0 ? await buildIndex() : [...sessionIndex.values()];
       sendJson(res, 200, { sessions, indexBuiltAt, terminals: availableTerminals.map(({ id, label }) => ({ id, label })) });
     } catch (err) {
-      sendJson(res, 500, { error: String(err) });
+      console.error('[sessions] scan failed:', err);
+      sendJson(res, 500, { error: 'could not read sessions' });
     }
     return;
   }
@@ -241,7 +247,10 @@ const server = http.createServer(async (req, res) => {
         if (target === 'terminal') {
           const termId = app || availableTerminals[0]?.id;
           const opener = availableTerminals.some((t) => t.id === termId) && TERMINAL_OPENERS[termId];
-          if (!opener) return sendJson(res, 400, { error: 'terminal app not available: ' + termId });
+          if (!opener) {
+            console.error(`[open] unavailable terminal requested: ${termId}`);
+            return sendJson(res, 400, { error: 'terminal app not available' });
+          }
           await opener(session);
         } else if (target === 'vscode') await openInVSCode(session);
         else return sendJson(res, 400, { error: 'invalid target' });
@@ -249,7 +258,8 @@ const server = http.createServer(async (req, res) => {
 
         sendJson(res, 200, { ok: true });
       } catch (err) {
-        sendJson(res, 500, { error: String(err) });
+        console.error('[open] failed:', err);
+        sendJson(res, 500, { error: 'could not open the session' });
       }
     });
     return;
