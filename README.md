@@ -10,7 +10,7 @@ A local web dashboard for browsing and resuming your Claude Code sessions.
 npx claude-console
 ```
 
-![Clicking a session's resume button, which reopens it in the terminal](https://raw.githubusercontent.com/Sahilll15/claude-console/main/docs/resume.gif)
+![Searching 14 sessions for auth, then clicking resume to reopen it in the terminal](https://raw.githubusercontent.com/Sahilll15/claude-console/main/docs/demo.gif)
 
 Claude Code keeps every session as a transcript on disk, but gives you no way to look
 back through them. This reads those transcripts and puts them in one list: the prompt
