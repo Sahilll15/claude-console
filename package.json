@@ -1,6 +1,6 @@
 {
   "name": "claude-console",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local web dashboard to browse and resume your Claude Code sessions, with per-session cost and token data.",
   "type": "module",
   "bin": {
