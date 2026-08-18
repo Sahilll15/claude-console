@@ -1,0 +1,43 @@
+name: snyk
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Catches newly disclosed issues in code that has not changed.
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm install -g snyk
+
+      - name: Dependency scan
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          # Exit 3 means no manifest worth scanning. This project ships zero
+          # dependencies, so treat that as a pass rather than a failure.
+          code=0
+          snyk test --severity-threshold=high || code=$?
+          if [ "$code" = "3" ]; then
+            echo "No dependency manifest to scan yet."
+            exit 0
+          fi
+          exit "$code"
+
+      - name: Static analysis
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk code test --severity-threshold=high
