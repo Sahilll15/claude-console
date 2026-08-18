@@ -14,8 +14,8 @@ you opened with, the project, the branch, how many messages, how many tokens, wh
 cost, and which models ran. Click a row and the session reopens in your terminal,
 already resumed.
 
-Everything runs on your machine. The server binds to `127.0.0.1`, has no dependencies,
-and sends nothing anywhere.
+Everything runs on your machine. There is no login and no API key, the server binds to
+`127.0.0.1`, it has no dependencies, and it sends nothing anywhere.
 
 > Screenshots use a generated demo session set, not real data.
 
@@ -89,22 +89,68 @@ bookmarked.
 
 ## How it works
 
+There is no login, no API key, and no account. Claude Code already writes every session
+to disk as it happens, and this reads those files. Nothing leaves your machine.
+
+### Where the sessions live
+
+One folder per working directory, with the path flattened into the folder name, and one
+[JSON Lines](https://jsonlines.org/) file per session, named by its session id:
+
+```
+~/.claude/projects/-Users-you-code-api-gateway/
+    44c8347f-e96c-4952-a93a-805e9dd70f42.jsonl
+```
+
+Every line is one event. The ones the list is built from carry these fields:
+
+```
+cwd, gitBranch, timestamp, type, isMeta, sessionId, message{role, content}
+```
+
+### Building the list
+
 `server.mjs` is a single dependency-free Node HTTP server. On the first request to
-`/api/sessions` it walks `~/.claude/projects/*/*.jsonl`, streams each transcript line by
-line to pull out the working directory, branch, first real user prompt, and message
-count, then merges in per-session cost and tokens from `ccusage session --json`.
+`/api/sessions` it walks `~/.claude/projects/*/*.jsonl` and streams each file line by
+line, pulling out the working directory, branch, first real user prompt, and message
+count. Streaming rather than reading whole files matters here: a year of sessions can run
+well past a gigabyte.
 
-`POST /api/open` validates the session id against that index before launching anything,
-then opens Terminal.app and iTerm2 through AppleScript, and Ghostty through
-`open -na Ghostty.app`.
+It scans every line instead of trusting the first, because the records are not uniform. A
+transcript can open with a marker line that carries no `cwd` at all.
 
-The frontend is one `index.html` with no build step.
+Cost and tokens are not in the transcripts. Those come from `ccusage session --json`,
+which reads the same files, totals them per session, and gets merged in by session id.
+That is why the columns show `-` without ccusage: it is a separate local tool, not a
+service this talks to.
 
-To read a different config directory, set `CLAUDE_CONFIG_DIR`:
+Point it at a different directory with `CLAUDE_CONFIG_DIR`:
 
 ```bash
 CLAUDE_CONFIG_DIR=~/some-other-claude-dir npx claude-console
 ```
+
+### Resuming a session
+
+`POST /api/open` validates the session id against the index before launching anything,
+then opens Terminal.app or iTerm2 through AppleScript, or Ghostty through
+`open -na Ghostty.app`, running `claude --resume <id>` in that session's directory.
+
+Which is the other reason nothing here needs credentials: the resumed session is Claude
+Code authenticating as itself, one level down. This never sees a token.
+
+The frontend is one `index.html` with no build step.
+
+### What it exposes
+
+The server binds to `127.0.0.1`, so it is not reachable from your network. It has no
+authentication of its own, on the assumption that anything running as you can already
+read `~/.claude`.
+
+The practical consequence: while it runs, any local process can read
+`http://127.0.0.1:5959/api/sessions`, and with it your prompts. On a single-user laptop
+that grants nothing that reading the transcripts directly would not. On a shared machine,
+stop the server when you are not using it.
 
 ## Troubleshooting
 
