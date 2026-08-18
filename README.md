@@ -1,5 +1,9 @@
 # claude-console
 
+[![npm version](https://img.shields.io/npm/v/claude-console?color=cb3837&logo=npm)](https://www.npmjs.com/package/claude-console)
+[![license](https://img.shields.io/npm/l/claude-console)](LICENSE)
+[![node](https://img.shields.io/node/v/claude-console)](https://nodejs.org)
+
 A local web dashboard for browsing and resuming your Claude Code sessions.
 
 ```bash
