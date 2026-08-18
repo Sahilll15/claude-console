@@ -1,0 +1,40 @@
+{
+  "name": "claude-console",
+  "version": "0.1.0",
+  "description": "Local web dashboard to browse and resume your Claude Code sessions, with per-session cost and token data.",
+  "type": "module",
+  "bin": {
+    "claude-console": "server.mjs"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "files": [
+    "server.mjs",
+    "index.html"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "anthropic",
+    "sessions",
+    "transcripts",
+    "dashboard",
+    "ccusage",
+    "developer-tools",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sahilll15/claude-console.git"
+  },
+  "homepage": "https://github.com/Sahilll15/claude-console#readme",
+  "bugs": {
+    "url": "https://github.com/Sahilll15/claude-console/issues"
+  },
+  "author": "Sahil Chalke",
+  "license": "MIT"
+}

@@ -147,7 +147,7 @@
 
   .when { text-align: right; color: var(--ink-dim); font-size: 11px; white-space: nowrap; }
 
-  .actions { display: flex; gap: 7px; align-items: center; }
+  .actions { display: flex; gap: 7px; align-items: center; position: relative; }
   .play {
     display: inline-flex; align-items: center; gap: 6px;
     background: transparent; border: 1px solid var(--border); color: var(--ink-dim);
@@ -158,7 +158,16 @@
   .play:hover { border-color: var(--amber); color: var(--amber); }
   .play:active { transform: scale(0.95); }
   .play svg { width: 9px; height: 9px; fill: currentColor; flex: none; }
-  .rowstatus { font-size: 10px; color: var(--amber); white-space: nowrap; }
+  /* Covers the whole actions cell while a status shows: the column has no spare
+     width, so an inline label spills past the row, and a partial cover leaves
+     the buttons' play glyphs poking out beside the text. */
+  .rowstatus {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: flex-end; overflow: hidden; text-overflow: ellipsis;
+    padding: 4px 7px; border-radius: 6px; background: var(--surface-2);
+    font-size: 10px; color: var(--amber); white-space: nowrap;
+  }
+  .rowstatus:empty { display: none; }
   .rowstatus.err { color: var(--red); }
 
   .empty-list { text-align: center; color: var(--ink-dim); padding: 70px 0 30px; }

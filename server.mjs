@@ -9,7 +9,8 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = 5959;
+const argPortIdx = process.argv.indexOf('--port');
+const PORT = Number(process.env.PORT || (argPortIdx > -1 ? process.argv[argPortIdx + 1] : 0)) || 5959;
 const CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
 const PROJECTS_DIR = path.join(CONFIG_DIR, 'projects');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -255,6 +256,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   sendJson(res, 404, { error: 'not found' });
+});
+
+server.on('error', (err) => {
+  if (err.code !== 'EADDRINUSE') throw err;
+  console.error(`Port ${PORT} is in use. Pick another with --port 6060 or PORT=6060.`);
+  process.exit(1);
 });
 
 server.listen(PORT, '127.0.0.1', () => {

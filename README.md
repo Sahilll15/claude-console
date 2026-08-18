@@ -2,7 +2,11 @@
 
 A local web dashboard for browsing and resuming your Claude Code sessions.
 
-![The claude-console dashboard listing sessions grouped by day](docs/dashboard.png)
+```bash
+npx claude-console
+```
+
+![Clicking a session's resume button, which reopens it in the terminal](https://raw.githubusercontent.com/Sahilll15/claude-console/main/docs/resume.gif)
 
 Claude Code keeps every session as a transcript on disk, but gives you no way to look
 back through them. This reads those transcripts and puts them in one list: the prompt
@@ -26,12 +30,19 @@ and sends nothing anywhere.
 ## Run it
 
 ```bash
+npx claude-console
+```
+
+Then open http://127.0.0.1:5959. Use a different port with `--port 6060` or
+`PORT=6060`.
+
+To run it from a clone instead:
+
+```bash
 git clone https://github.com/Sahilll15/claude-console.git
 cd claude-console
 node server.mjs
 ```
-
-Then open http://127.0.0.1:5959.
 
 The first scan reads every transcript, roughly 8 seconds for 400 sessions. After that
 the index is cached and the list is instant. Sessions created while the server is
@@ -40,6 +51,8 @@ running appear when you hit `rescan`.
 ## What you can do
 
 ### Read the list
+
+![The claude-console dashboard listing sessions grouped by day](https://raw.githubusercontent.com/Sahilll15/claude-console/main/docs/dashboard.png)
 
 Each row starts with the first prompt you typed, so you can recognise a session by what
 you were trying to do. Under it are the project, working directory, git branch, and a
@@ -52,7 +65,7 @@ grouped into today, yesterday, this week, this month, and earlier.
 
 ### Find one
 
-![Searching for test and sorting by highest cost](docs/search.png)
+![Searching for test and sorting by highest cost](https://raw.githubusercontent.com/Sahilll15/claude-console/main/docs/search.png)
 
 - Type in the search box to filter by prompt, project, or session id.
 - Narrow to a single project with the dropdown.
@@ -90,7 +103,7 @@ The frontend is one `index.html` with no build step.
 To read a different config directory, set `CLAUDE_CONFIG_DIR`:
 
 ```bash
-CLAUDE_CONFIG_DIR=~/some-other-claude-dir node server.mjs
+CLAUDE_CONFIG_DIR=~/some-other-claude-dir npx claude-console
 ```
 
 ## Troubleshooting
@@ -100,7 +113,7 @@ CLAUDE_CONFIG_DIR=~/some-other-claude-dir node server.mjs
 | Cost and tokens show `-` | ccusage is not on PATH. Install it with `npm i -g ccusage`. |
 | A row says `(empty session)` | The transcript has no user prompt, usually an aborted or tool-only run. `hide noise` hides these. |
 | Terminal opens but `claude` is not found | The binary is resolved once at startup. Restart the server after installing or moving Claude Code. |
-| Port 5959 is in use | Change the `PORT` constant at the top of `server.mjs`. |
+| `Port 5959 is in use` | Start it on another port with `--port 6060`. |
 
 <details>
 <summary>Start it on login</summary>
@@ -127,3 +140,7 @@ for your clone and your Node install, then run
 ```
 
 </details>
+
+## License
+
+MIT
