@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/claude-console?color=cb3837&logo=npm)](https://www.npmjs.com/package/claude-console)
 [![license](https://img.shields.io/npm/l/claude-console)](LICENSE)
 [![node](https://img.shields.io/node/v/claude-console)](https://nodejs.org)
+[![Known vulnerabilities](https://snyk.io/test/github/Sahilll15/claude-console/badge.svg)](https://snyk.io/test/github/Sahilll15/claude-console)
 
 A local web dashboard for browsing and resuming your Claude Code sessions.
 
@@ -10,7 +11,7 @@ A local web dashboard for browsing and resuming your Claude Code sessions.
 npx claude-console
 ```
 
-![Clicking a session's resume button, which reopens it in the terminal](https://raw.githubusercontent.com/Sahilll15/claude-console/main/docs/resume.gif)
+![Searching 14 sessions for auth, then clicking resume to reopen it in the terminal](https://raw.githubusercontent.com/Sahilll15/claude-console/main/docs/demo.gif)
 
 Claude Code keeps every session as a transcript on disk, but gives you no way to look
 back through them. This reads those transcripts and puts them in one list: the prompt
@@ -155,6 +156,22 @@ The practical consequence: while it runs, any local process can read
 `http://127.0.0.1:5959/api/sessions`, and with it your prompts. On a single-user laptop
 that grants nothing that reading the transcripts directly would not. On a shared machine,
 stop the server when you are not using it.
+
+## Security scanning
+
+Every push and pull request runs Snyk in CI, and again weekly to catch newly disclosed
+issues in code that has not changed. Two checks: a dependency scan, and static analysis
+over `server.mjs` and `index.html`. Both fail the build on high severity or above.
+
+The dependency scan currently has nothing to find, since this ships zero dependencies.
+It is wired up so the first dependency added gets scanned automatically.
+
+Running it yourself needs a Snyk account:
+
+```bash
+snyk auth
+snyk code test
+```
 
 ## Troubleshooting
 
